@@ -1,6 +1,9 @@
 defmodule Storage do
     def start() do
-        map=:erlang.binary_to_term(File.read!(defaultFilename()))
+        map=case File.read(defaultFilename()) do
+            {:ok, binary} -> :erlang.binary_to_term(binary)
+            _ -> %{}
+        end
         case Task.start_link(fn -> loop(map) end) do
             {:ok, pid} ->
                 Process.register(pid, :storage)
