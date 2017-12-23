@@ -1,18 +1,17 @@
 defmodule Storage do
     def start() do
-        case Task.start_link(fn -> loop(%{}) end) do
+        map=:erlang.binary_to_term(File.read!(defaultFilename()))
+        case Task.start_link(fn -> loop(map) end) do
             {:ok, pid} ->
                 Process.register(pid, :storage)
             _ ->
                 IO.puts "Cannot start the Storage, halting"
                 System.halt(:abort)
         end
-        set("1", "ONE", 10)
-        set("2", "tWo", 20)
-        set("3", "Enough already!", 30)
     end
 
     def defaultLife(), do: 10
+    def defaultFilename(), do: "kv.storage"
 
     def set(key, value, life), do: send(:storage, {:set, key, value, life})
     def set(key, value), do: send(:storage, {:set, key, value, defaultLife()})
@@ -33,6 +32,7 @@ defmodule Storage do
     end
 
     defp loop(map) do
+        File.write!(defaultFilename(), :erlang.term_to_binary(map))
         receive do
             {:all, from} ->
                 send(from, {:all, map})
@@ -49,7 +49,6 @@ defmodule Storage do
                     _ -> value.data
                 end
                 send(from, {:get, key, data})
-#                send(from, {:get, key, Map.get(map, key).data})
                 loop(map)
 
             {:purge} ->
