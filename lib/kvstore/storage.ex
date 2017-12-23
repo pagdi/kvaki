@@ -53,6 +53,21 @@ defmodule Storage do
 
             {:purge} ->
                 loop(%{})
+                
+        after
+            1000 ->
+                gc(map)
         end
     end
+
+    defp gc(map) do
+        now=DateTime.utc_now()
+        alive=fn(than, life) -> DateTime.diff(now, than) < life end
+        list=for {key, value} <- Map.to_list(map), alive.(value.created, value.life), do: {key, value}
+        loop(listToMap(list))
+    end
+
+    def listToMap(list), do: listToMap(list, [])
+    def listToMap([pair | xs], acc), do: listToMap(xs, [pair | acc])
+    def listToMap(_, acc), do: Enum.into(acc, %{})
 end
