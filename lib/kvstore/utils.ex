@@ -4,7 +4,8 @@ defmodule Utils do
         <body>
         KVstore "syntax" guide:<br>
             - To read <i>value</i> by <i>key</i>: http://localhost:8000/?key<br>
-            - To add/update <i>value</i> with <i>key</i>: http://localhost:8000/?key=value<br>
+            - To add/update <i>value</i> with <i>key</i>: http://localhost:8000/?key=value&life<br>
+            (where <i>life</i> is seconds before <i>value</i> is removed. Default is 10s.)<br>
             <br>
             <a href="/">All values</a><br>
             <a href="/purge">Purge the storage</a><br><br>
@@ -20,7 +21,7 @@ defmodule Utils do
     defp all() do
         data=Storage.all()
         for key <- Map.keys(data) do
-            pair(key, data[key])
+            pair(key, data[key].data)
         end
         |> Enum.join
     end
@@ -44,8 +45,20 @@ defmodule Utils do
                 bodyFromGet(hd(parts))
             2 ->
                 key=hd(parts)
-                value=hd(tl(parts))
-                Storage.set(key, value)
+                tail=hd(tl(parts))
+                tailParts=String.split(tail, "&", parts: 2)
+                value=hd(tailParts)
+                life=case length(tailParts) do
+                    1 ->
+                        Storage.defaultLife()
+                    2 ->
+                        case Integer.parse(hd(tl(tailParts))) do
+                            :error ->
+                                Storage.defaultLife()
+                            {integer, _} -> integer
+                        end
+                end
+                Storage.set(key, value, life)
                 bodyFromSet(key, value)
         end
     end
