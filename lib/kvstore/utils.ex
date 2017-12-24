@@ -23,7 +23,7 @@ defmodule Utils do
     """
 
     # Формирование строки в таблице значений.
-    defp pair(key, value), do: "<i>" <> key <> "</i> = " <> value <> "<br>"
+    def pair(key, value), do: "<i>" <> key <> "</i> = " <> value <> "<br>"
 
     # Формирование таблицы всех значений.
     defp all() do

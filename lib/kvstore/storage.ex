@@ -4,37 +4,38 @@ defmodule Storage do
     Общение с циклом обработки фактически синхронное, но для наших целей этого достаточно.
     """
 
-    def start() do
+    def start(fresh) do
         # На старте пытаемся прочитать сериализованные данные.
-        map=case File.read(defaultFilename()) do
-            {:ok, binary} -> :erlang.binary_to_term(binary)
-            _ -> %{} # Если файла нет, начинаем с пустого хранилища.
+        map=case fresh do
+            false ->
+                case File.read(defaultFilename()) do
+                    {:ok, binary} -> :erlang.binary_to_term(binary)
+                    _ -> %{} # Если файла нет, начинаем с пустого хранилища.
+                end
+            _ -> %{}
         end
+
         # Собственно запуск процесса хранилища.
-        case Task.start_link(fn -> loop(map) end) do
-            {:ok, pid} ->
-                Process.register(pid, :storage)
-            _ ->
-                IO.puts "Cannot start the Storage, halting"
-                System.halt(:abort)
-        end
+        Process.register(spawn_link(Storage, :loop, [map]), defaultAtom())
     end
 
+    # Атом-идентификатор хранилища
+    def defaultAtom(), do: :storage
     # Время жизни элемента данных по умолчанию.
     def defaultLife(), do: 10
     # Имя файла для записи/чтения сериализованного хранилища.
     def defaultFilename(), do: "kv.storage"
 
     # Установка/обновление элемента данных: пары "ключ-значение". @life есть время жизни элемента.
-    def set(key, value, life), do: send(:storage, {:set, key, value, life})
-    def set(key, value), do: send(:storage, {:set, key, value, defaultLife()})
+    def set(key, value, life), do: send(defaultAtom(), {:set, key, value, life})
+    def set(key, value), do: send(defaultAtom(), {:set, key, value, defaultLife()})
 
     # Удаление всех хранимых значений.
-    def purge(), do: send(:storage, {:purge})
+    def purge(), do: send(defaultAtom(), {:purge})
 
     # Запрос значения по ключу. Значение отдаётся очищенным, без меток времени.
     def get(key) do
-        send(:storage, {:get, self(), key})
+        send(defaultAtom(), {:get, self(), key})
         receive do
             {:get, _, value} -> value
         end
@@ -42,14 +43,14 @@ defmodule Storage do
 
     # Запрос всех элементов. Элементы отдаются в сыром виде, с метками времени.
     def all() do
-        send(:storage, {:all, self()})
+        send(defaultAtom(), {:all, self()})
         receive do
             {:all, map} -> map
         end
     end
 
     # Цикл обработки.
-    defp loop(map) do
+    def loop(map) do
         # Ecto у нас нет, поэтому на каждой итерации тупо скидываем слепок хранилища на диск.
         # Пока объём сериализованных данных <= 1/2 дискового кеша, достаточно эффективно.
         File.write!(defaultFilename(), :erlang.term_to_binary(map))
@@ -81,7 +82,10 @@ defmodule Storage do
             {:purge} ->
                 # Совсем тривиально.
                 loop(%{})
-                
+
+            _ ->
+                loop(map)
+
         after
             # Каждую секунду вызываем "сборщик мусора".
             # Крайне неэффективно, зато просто.
@@ -91,7 +95,7 @@ defmodule Storage do
     end
 
     # "Сборка мусора" - удаление всех зажившихся на свете элементов.
-    defp gc(map) do
+    def gc(map) do
         now=DateTime.utc_now()
         # Замыкаем текущее время.
         alive=fn(than, life) -> DateTime.diff(now, than) < life end

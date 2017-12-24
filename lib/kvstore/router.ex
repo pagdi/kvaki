@@ -1,17 +1,19 @@
 defmodule KVstore.Router do
     use Plug.Router
 
-    # По сути, бойлеры: пара стандартных штепселей для минимального приложения.
+    # По сути, бойлер: пара стандартных штепселей для минимального приложения.
     plug :match
     plug :dispatch
 
     # Условия задача воспрещают создание специализированных штепселей,
     # поэтому маршрутизацию и собственно формирование отклика совместим прямо здесь.
 
+    def text404(), do: "Wrong turn."
+
     # Отклик на обычный запрос.
     defp contentType(conn), do: put_resp_content_type(conn, "text/html")
     # Извлечение запроса (то, что после "/?").
-    defp extractQuery(conn), do: conn.query_string
+    def extractQuery(conn), do: conn.query_string
     # Формирование ответа.
     defp response(conn), do: send_resp(contentType(conn), 200, Utils.page(extractQuery(conn)))
 
@@ -26,5 +28,5 @@ defmodule KVstore.Router do
 
     # Отклик на ошибочный запрос. Конкретную причину ошибки не анализируем, ибо безразлична.
     # По-хорошему, всё это должно выноситься в отдельные модули, но.
-    match _, do: send_resp(conn, 404, "Wrong turn.")
+    match _, do: send_resp(conn, 404, text404())
 end
