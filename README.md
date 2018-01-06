@@ -9,9 +9,14 @@ mix run --no-halt
 http://localhost:8000/
 
 
-Тесты:
+Модульные тесты:
 
 mix test
+
+
+Прочие тесты:
+
+mix semper
 
 
 License
